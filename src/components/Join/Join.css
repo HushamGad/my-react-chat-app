@@ -1,0 +1,182 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+/* Global Styles */
+html,
+body {
+    font-family: 'Roboto', sans-serif;
+    padding: 0;
+    margin: 0;
+    background-color: #1A1A1D; /* Set a dark background for the entire app */
+    color: #fff; /* Default text color */
+    height: 100%;
+    width: 100%;
+}
+
+#root {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Box Sizing */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* Outer Container */
+.joinOuterContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
+    background-color: #1A1A1D;
+    padding: 20px; /* Added padding for better spacing on smaller screens */
+}
+
+/* Inner Container */
+.joinInnerContainer {
+    background-color: #26262B; /* Slightly lighter than outer for contrast */
+    padding: 40px 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 350px; /* Fixed width for desktop */
+    max-width: 90%; /* Responsive max-width */
+    text-align: center;
+}
+
+/* Heading */
+.heading {
+    color: #E94560; /* A vibrant color for attention */
+    font-size: 2em;
+    margin-bottom: 30px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* Input Group */
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.inputGroup label {
+    margin-bottom: 8px;
+    font-weight: 700;
+    font-size: 1em;
+    color: #fff;
+}
+
+.joinInput {
+    width: 100%;
+    padding: 12px 15px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1em;
+    transition: box-shadow 0.3s ease;
+}
+
+.joinInput:focus {
+    outline: none;
+    box-shadow: 0 0 5px #2979FF;
+}
+
+/* Error Message */
+.error {
+    color: #FF6B6B;
+    background-color: #333;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    font-weight: 500;
+    text-align: left;
+}
+
+/* Button */
+.button {
+    width: 100%;
+    padding: 15px;
+    background-color: #2979FF;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-size: 1em;
+    font-weight: 700;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.button:hover {
+    background-color: #1C54B2;
+}
+
+.button:active {
+    transform: scale(0.98);
+}
+
+.button:focus {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+/* Margin Top Utility */
+.mt-20 {
+    margin-top: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .joinInnerContainer {
+        width: 100%;
+        padding: 30px 20px;
+    }
+
+    .heading {
+        font-size: 1.8em;
+        margin-bottom: 25px;
+    }
+
+    .joinInput {
+        padding: 10px 12px;
+    }
+
+    .button {
+        padding: 12px;
+        font-size: 0.95em;
+    }
+}
+
+@media (max-width: 480px) {
+    .joinInnerContainer {
+        padding: 20px 15px;
+    }
+
+    .heading {
+        font-size: 1.5em;
+        margin-bottom: 20px;
+    }
+
+    .joinInput {
+        padding: 8px 10px;
+        font-size: 0.9em;
+    }
+
+    .button {
+        padding: 10px;
+        font-size: 0.9em;
+    }
+}
+
+/* Accessibility: Focus Styles */
+input:focus,
+button:focus {
+    outline: 2px solid #2979FF;
+    outline-offset: 2px;
+}
