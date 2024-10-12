@@ -2,15 +2,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import queryString from 'query-string';
-import io from 'socket.io-client';
+import { io } from 'socket.io-client';
 import './Chat.css';
 import closeIcon from '../Icons/closeIcon.png';
 import onlineIcon from '../Icons/onlineIcon.png';
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 import dayjs from 'dayjs';
-
-const ENDPOINT = 'https://realtime-chat-application-4nji.onrender.com';
 
 const Chat = () => {
   const location = useLocation();
@@ -35,8 +33,13 @@ const Chat = () => {
     setName(name);
     setRoom(room);
 
-    socketRef.current = io(ENDPOINT);
+    // Initialize Socket.io client with environment variable
+    socketRef.current = io(process.env.REACT_APP_BACKEND_URL, {
+      transports: ['websocket'], // Optional: specify transport
+      secure: true, // Optional: enforce secure connection
+    });
 
+    // Emit 'join' event to backend
     socketRef.current.emit('join', { name, room }, (error) => {
       if (error) {
         alert(error);
@@ -44,9 +47,13 @@ const Chat = () => {
       }
     });
 
+    // Cleanup on component unmount
     return () => {
-      socketRef.current.disconnect();
-      socketRef.current.off();
+      if (socketRef.current) {
+        socketRef.current.emit('stopTyping', { name, room }); // Ensure typing status is cleared
+        socketRef.current.disconnect();
+        socketRef.current.off();
+      }
     };
   }, [location.search, navigate]);
 
@@ -54,36 +61,43 @@ const Chat = () => {
     const socket = socketRef.current;
 
     if (socket) {
+      // Handle incoming messages
       const handleMessage = (message) => {
         console.log('Received message:', message); // Debugging
         setMessages((msgs) => [...msgs, message]);
       };
 
+      // Handle room data updates
       const handleRoomData = ({ users }) => {
         setUsers(users);
       };
 
+      // Handle incoming typing indicators
       const handleTyping = ({ name: typingName }) => {
         if (typingName !== name && !typingUsers.includes(typingName)) {
           setTypingUsers((prev) => [...prev, typingName]);
         }
       };
 
+      // Handle stop typing indicators
       const handleStopTyping = ({ name: typingName }) => {
         setTypingUsers((prev) => prev.filter((user) => user !== typingName));
       };
 
+      // Handle receiving chat history
       const handleChatHistory = (history) => {
         console.log('Received chat history:', history); // Debugging
         setMessages(history);
       };
 
+      // Attach event listeners
       socket.on('message', handleMessage);
       socket.on('roomData', handleRoomData);
       socket.on('typing', handleTyping);
       socket.on('stopTyping', handleStopTyping);
       socket.on('chatHistory', handleChatHistory); // Listen for chat history
 
+      // Cleanup event listeners on component unmount
       return () => {
         socket.off('message', handleMessage);
         socket.off('roomData', handleRoomData);
@@ -92,14 +106,14 @@ const Chat = () => {
         socket.off('chatHistory', handleChatHistory); // Clean up
       };
     }
-  }, [typingUsers,name]); // Removed 'typingUsers' from dependencies
+  }, [name]); 
 
   const sendMessage = (e) => {
     e.preventDefault();
 
     if (message.trim()) {
       socketRef.current.emit('sendMessage', message, () => setMessage(''));
-      socketRef.current.emit('stopTyping', { name });
+      socketRef.current.emit('stopTyping', { name, room });
     }
   };
 
