@@ -106,7 +106,7 @@ const Chat = () => {
         socket.off('chatHistory', handleChatHistory); // Clean up
       };
     }
-  }, [name]); 
+  }, [typingUsers,name]); 
 
   const sendMessage = (e) => {
     e.preventDefault();
