@@ -92,7 +92,7 @@ const Chat = () => {
         socket.off('chatHistory', handleChatHistory); // Clean up
       };
     }
-  }, [name]); // Removed 'typingUsers' from dependencies
+  }, [typingUsers,name]); // Removed 'typingUsers' from dependencies
 
   const sendMessage = (e) => {
     e.preventDefault();
