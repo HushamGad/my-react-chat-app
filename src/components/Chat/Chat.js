@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import queryString from 'query-string';
-import { io } from 'socket.io-client';
+import { io } from 'socket.io-client'; // Ensure correct import
 import './Chat.css';
 import closeIcon from '../Icons/closeIcon.png';
 import onlineIcon from '../Icons/onlineIcon.png';
@@ -74,8 +74,13 @@ const Chat = () => {
 
       // Handle incoming typing indicators
       const handleTyping = ({ name: typingName }) => {
-        if (typingName !== name && !typingUsers.includes(typingName)) {
-          setTypingUsers((prev) => [...prev, typingName]);
+        if (typingName !== name) {
+          setTypingUsers((prev) => {
+            if (!prev.includes(typingName)) {
+              return [...prev, typingName];
+            }
+            return prev;
+          });
         }
       };
 
@@ -106,7 +111,7 @@ const Chat = () => {
         socket.off('chatHistory', handleChatHistory); // Clean up
       };
     }
-  }, [typingUsers,name]); 
+  }, [name]); // Removed 'typingUsers' from dependencies
 
   const sendMessage = (e) => {
     e.preventDefault();
