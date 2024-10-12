@@ -1,14 +1,16 @@
 // Chat.js
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import queryString from 'query-string';
-import { io } from 'socket.io-client'; // Ensure correct import
+import io from 'socket.io-client';
 import './Chat.css';
 import closeIcon from '../Icons/closeIcon.png';
 import onlineIcon from '../Icons/onlineIcon.png';
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 import dayjs from 'dayjs';
+
+const ENDPOINT = 'https://realtime-chat-application-4nji.onrender.com';
 
 const Chat = () => {
   const location = useLocation();
@@ -22,163 +24,185 @@ const Chat = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const socketRef = useRef();
 
-  useEffect(() => {
-    const { name, room } = queryString.parse(location.search);
+  // Manage typing state
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef(null);
 
-    if (!name || !room) {
+  // Initialize socket connection and join room
+  useEffect(() => {
+    const { name: queryName, room: queryRoom } = queryString.parse(location.search);
+
+    if (!queryName || !queryRoom) {
       navigate('/');
       return;
     }
 
-    setName(name);
-    setRoom(room);
+    const sanitizedName = queryName.trim();
+    const sanitizedRoom = queryRoom.trim();
 
-    // Initialize Socket.io client with environment variable
-    socketRef.current = io(process.env.REACT_APP_BACKEND_URL, {
-      transports: ['websocket'], // Optional: specify transport
-      secure: true, // Optional: enforce secure connection
+    setName(sanitizedName);
+    setRoom(sanitizedRoom);
+
+    // Initialize socket
+    socketRef.current = io(ENDPOINT, {
+      transports: ['websocket'], // Use WebSocket for better performance
     });
 
-    // Emit 'join' event to backend
-    socketRef.current.emit('join', { name, room }, (error) => {
+    // Emit join event with name and room
+    socketRef.current.emit('join', { name: sanitizedName, room: sanitizedRoom }, (error) => {
       if (error) {
         alert(error);
         navigate('/');
       }
     });
 
-    // Cleanup on component unmount
+    // Cleanup on unmount
     return () => {
-      if (socketRef.current) {
-        socketRef.current.emit('stopTyping', { name, room }); // Ensure typing status is cleared
-        socketRef.current.disconnect();
-        socketRef.current.off();
-      }
+      socketRef.current.disconnect();
+      socketRef.current.off();
     };
   }, [location.search, navigate]);
 
+  // Handle incoming socket events
   useEffect(() => {
     const socket = socketRef.current;
+    if (!socket) return;
 
-    if (socket) {
-      // Handle incoming messages
-      const handleMessage = (message) => {
-        console.log('Received message:', message); // Debugging
-        setMessages((msgs) => [...msgs, message]);
-      };
+    // Message received
+    const handleMessage = (msg) => {
+      console.log('Received message:', msg); // Debugging
+      setMessages((prevMessages) => [...prevMessages, msg]);
+    };
 
-      // Handle room data updates
-      const handleRoomData = ({ users }) => {
-        setUsers(users);
-      };
+    // Room data updated
+    const handleRoomData = ({ room: currentRoom, users: currentUsers }) => {
+      setUsers(currentUsers);
+    };
 
-      // Handle incoming typing indicators
-      const handleTyping = ({ name: typingName }) => {
-        if (typingName !== name) {
-          setTypingUsers((prev) => {
-            if (!prev.includes(typingName)) {
-              return [...prev, typingName];
-            }
-            return prev;
-          });
-        }
-      };
+    // Typing indicator
+    const handleTyping = ({ name: typingName }) => {
+      if (typingName !== name && !typingUsers.includes(typingName)) {
+        setTypingUsers((prev) => [...prev, typingName]);
+      }
+    };
 
-      // Handle stop typing indicators
-      const handleStopTyping = ({ name: typingName }) => {
-        setTypingUsers((prev) => prev.filter((user) => user !== typingName));
-      };
+    // Stop typing indicator
+    const handleStopTyping = ({ name: typingName }) => {
+      setTypingUsers((prev) => prev.filter((user) => user !== typingName));
+    };
 
-      // Handle receiving chat history
-      const handleChatHistory = (history) => {
-        console.log('Received chat history:', history); // Debugging
-        setMessages(history);
-      };
+    // Chat history received
+    const handleChatHistory = (history) => {
+      console.log('Received chat history:', history); // Debugging
+      setMessages(history);
+    };
 
-      // Attach event listeners
-      socket.on('message', handleMessage);
-      socket.on('roomData', handleRoomData);
-      socket.on('typing', handleTyping);
-      socket.on('stopTyping', handleStopTyping);
-      socket.on('chatHistory', handleChatHistory); // Listen for chat history
+    // Register event listeners
+    socket.on('message', handleMessage);
+    socket.on('roomData', handleRoomData);
+    socket.on('typing', handleTyping);
+    socket.on('stopTyping', handleStopTyping);
+    socket.on('chatHistory', handleChatHistory);
 
-      // Cleanup event listeners on component unmount
-      return () => {
-        socket.off('message', handleMessage);
-        socket.off('roomData', handleRoomData);
-        socket.off('typing', handleTyping);
-        socket.off('stopTyping', handleStopTyping);
-        socket.off('chatHistory', handleChatHistory); // Clean up
-      };
-    }
-  }, [name]); // Removed 'typingUsers' from dependencies
+    // Cleanup listeners on unmount or when dependencies change
+    return () => {
+      socket.off('message', handleMessage);
+      socket.off('roomData', handleRoomData);
+      socket.off('typing', handleTyping);
+      socket.off('stopTyping', handleStopTyping);
+      socket.off('chatHistory', handleChatHistory);
+    };
+  }, [typingUsers, name]);
 
-  const sendMessage = (e) => {
-    e.preventDefault();
+  // Send message
+  const sendMessage = useCallback(
+    (e) => {
+      e.preventDefault();
 
-    if (message.trim()) {
-      socketRef.current.emit('sendMessage', message, () => setMessage(''));
-      socketRef.current.emit('stopTyping', { name, room });
-    }
-  };
+      const trimmedMessage = message.trim();
+      if (trimmedMessage) {
+        socketRef.current.emit('sendMessage', trimmedMessage, (error) => {
+          if (error) {
+            alert(error);
+          }
+          setMessage('');
+          socketRef.current.emit('stopTyping', { name, room });
+        });
+      }
+    },
+    [message, name, room]
+  );
 
-  // Typing indicator logic
-  const [typing, setTyping] = useState(false);
-  const typingTimeoutRef = useRef(null);
-
+  // Handle input change with typing indicator
   const handleInputChange = (e) => {
     setMessage(e.target.value);
 
-    if (!typing) {
-      setTyping(true);
+    if (!isTyping) {
+      setIsTyping(true);
       socketRef.current.emit('typing', { name, room });
     }
 
+    // Debounce stop typing
     clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
-      setTyping(false);
+      setIsTyping(false);
       socketRef.current.emit('stopTyping', { name, room });
     }, 1000);
   };
 
-  // Emoji picker logic
+  // Add emoji to message
   const addEmoji = (emoji) => {
-    setMessage((prev) => prev + emoji.native); // Ensure correct emoji addition
+    setMessage((prev) => prev + emoji.native);
     setShowEmojiPicker(false);
   };
 
   return (
     <div className='chatContainer'>
+      {/* Chat Header */}
       <div className='chatHeader'>
-        <img className="onlineIcon" src={onlineIcon} alt='Online Icon' />
+        <img className='onlineIcon' src={onlineIcon} alt='Online Icon' />
         <h2>{room}</h2>
-        <a href='/'><img src={closeIcon} alt='Close Icon' /></a>
+        <button
+          className='closeButton'
+          onClick={() => navigate('/')}
+          aria-label='Close Chat'
+        >
+          <img src={closeIcon} alt='Close Icon' />
+        </button>
       </div>
+
+      {/* Chat Body */}
       <div className='chatBody'>
-        <div className='chatMessage'>
-          {messages.map((msg, index) => (
+        {/* Messages */}
+        <div className='chatMessages'>
+          {messages.map((msg) => (
             <div
-              key={index}
-              className={`message ${msg.user === name.trim() ? 'ownMessage' : ''}`}
+              key={msg.id || msg.time} // Ensure each message has a unique key
+              className={`message ${msg.user === name.trim() ? 'ownMessage' : 'otherMessage'}`}
             >
               <p>
-                <strong>{msg.user}</strong> <span className="timestamp">{dayjs(msg.time).format('h:mm A')}</span>
+                <strong>{msg.user}</strong>{' '}
+                <span className='timestamp'>{dayjs(msg.time).format('h:mm A')}</span>
                 <br />
                 {msg.text}
               </p>
             </div>
           ))}
+
+          {/* Typing Indicators */}
           {typingUsers.length > 0 && (
             <div className='typingIndicator'>
               {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
             </div>
           )}
         </div>
+
+        {/* Users List */}
         <div className='userList'>
           <h3>Users Online</h3>
           <ul>
-            {users.map((user, index) => (
-              <li key={index}>
+            {users.map((user) => (
+              <li key={user.id}>
                 <img src={onlineIcon} alt='Online' className='userIcon' />
                 {user.name}
               </li>
@@ -186,16 +210,28 @@ const Chat = () => {
           </ul>
         </div>
       </div>
+
+      {/* Chat Input */}
       <div className='chatInput'>
         <form onSubmit={sendMessage}>
-          <button type='button' className='emojiButton' onClick={() => setShowEmojiPicker(!showEmojiPicker)}>
+          {/* Emoji Picker Toggle */}
+          <button
+            type='button'
+            className='emojiButton'
+            onClick={() => setShowEmojiPicker((prev) => !prev)}
+            aria-label='Toggle Emoji Picker'
+          >
             😊
           </button>
+
+          {/* Emoji Picker */}
           {showEmojiPicker && (
             <div className='emojiPicker'>
-              <Picker data={data} onEmojiSelect={addEmoji} /> {/* Ensure correct prop usage */}
+              <Picker data={data} onEmojiSelect={addEmoji} />
             </div>
           )}
+
+          {/* Message Input */}
           <input
             type='text'
             placeholder='Type a message...'
@@ -204,11 +240,15 @@ const Chat = () => {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 sendMessage(e);
-                e.preventDefault();
               }
             }}
+            aria-label='Type a message'
           />
-          <button type='submit' className='sendButton'>Send</button>
+
+          {/* Send Button */}
+          <button type='submit' className='sendButton' aria-label='Send Message'>
+            Send
+          </button>
         </form>
       </div>
     </div>
